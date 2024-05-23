@@ -19,7 +19,7 @@ $router->get('/', function () use ($router) {
 $router->group(['prefix' => 'api'], function () use ($router) {
     $router->post('/register', 'AuthController@register');
     $router->post('/send_otp', 'AuthController@sendOtp');
-    $router->get('/verify_otp', 'AuthController@verifyOtp');
+    $router->post('/verify_otp', 'AuthController@verifyOtp');
     $router->post('/logout', 'AuthController@logout');
 
     // home
