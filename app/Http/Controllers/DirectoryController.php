@@ -24,29 +24,30 @@ class DirectoryController extends Controller
             }
             $user= DB::selectOne("SELECT * FROM users WHERE id = ?", [$id]);
 
+            if(!$user){
+                return response()->json([
+                    'success' => 'false',
+                    'message' => 'User not found',
+                ], 404);
+            }
+            $id_user = $user->id;
+            $username = $user->username;
+
             $data = DB::selectOne(
                 "SELECT ms_layanan.nama_layanan, ms_paket.id_layanan, ms_paket.nama_paket 
                 FROM ms_paket
                 JOIN ms_layanan ON ms_layanan.id = ms_paket.id_layanan WHERE nama_paket = ?", 
-                [$request->nama_paket]);
-
-            $id_user = $user->id;
-            $username = $user->username;
+                [$request->nama_paket]
+            );
+            if(!$data) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Paket not found"
+                ], 404);
+            }
+            
             $nama_layanan = $data->nama_layanan;
             $nama_paket = $data->nama_paket;
-            
-            if(!$user){
-                return response()->json([
-                    'success' => true,
-                    'message ' => "User not found",
-                ], 404); // Not Found
-            }
-            if(!$data){
-                return response()->json([
-                    'success' => true,
-                    'message ' => "Paket not found",
-                ], 404); // Not Found
-            }
 
             $directoryUsersPath = storage_path("app/public/$username");
             if (!file_exists($directoryUsersPath)) {
@@ -73,12 +74,14 @@ class DirectoryController extends Controller
                         $username, 
                         $directoryUsersPath, 
                         Carbon::now(), 
-                        Carbon::now()]);
-                        $idDirektoriUser = DB::getPdo()->lastInsertId();
+                        Carbon::now()
+                    ]);
+                    $idDirektoriUser = DB::getPdo()->lastInsertId();
                 }
 
-               
-                $existDirectoryLayanan = DB::selectOne("SELECT * FROM ms_direktori_layanan WHERE id_direktori_users = ?", [$idDirektoriUser]);
+                $existDirectoryLayanan = DB::selectOne("SELECT * FROM ms_direktori_layanan WHERE id_direktori_users = ? 
+                AND 
+                directory_name = ? ", [$idDirektoriUser, $nama_layanan]);
                 if ($existDirectoryLayanan) {
                     $idDirektoriLayanan = $existDirectoryLayanan->id;
                 } else {
@@ -90,24 +93,26 @@ class DirectoryController extends Controller
                         Carbon::now()]);
                         $idDirektoriLayanan = DB::getPdo()->lastInsertId();
                 }
-
-                $existDirectoryPaket = DB::selectOne("SELECT * FROM ms_direktori_paket WHERE id_direktori_layanan = ?", [$idDirektoriLayanan]);
+                $existDirectoryPaket = DB::selectOne("SELECT * FROM ms_direktori_paket WHERE id_direktori_layanan = ?
+                AND directory_name = ? ", [
+                    $idDirektoriLayanan, 
+                    $nama_paket
+                ]);
                 if ($existDirectoryPaket) {
-                    $idDirectoryPaket = $existDirectoryPaket->id;
-                }else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Directory paket already exist"
+                    ]);
+                } else {
                     DB::insert("INSERT INTO ms_direktori_paket (id_direktori_layanan, directory_name, url_directory, created_at, last_accessed_at) VALUES (?, ?, ?, ?, ?)", [
                         $idDirektoriLayanan, 
                         $nama_paket, 
                         $directoryPaketPath, 
                         Carbon::now(), 
-                        Carbon::now()]);
-                        $idDirectoryPaket = DB::getPdo()->lastInsertId();
+                        Carbon::now()
+                    ]);
                 }
-                 return response()->json([
-                    'user' => $idDirektoriUser,
-                    'layanan' => $idDirektoriLayanan,
-                    'paket' => $idDirectoryPaket,
-                ]);
+                $idDirectoryPaket = DB::getPdo()->lastInsertId();
 
                 return response()->json([
                     'success' => true,
