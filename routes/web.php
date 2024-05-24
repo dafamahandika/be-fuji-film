@@ -21,6 +21,9 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->post('/send_otp', 'AuthController@sendOtp');
     $router->post('/verify_otp', 'AuthController@verifyOtp');
     $router->post('/logout', 'AuthController@logout');
+    $router->post('/create/directory/{id}', 'DirectoryController@createDirectory');
+    
+    
 
     // home
     $router->get('/home', 'UserController@home');
