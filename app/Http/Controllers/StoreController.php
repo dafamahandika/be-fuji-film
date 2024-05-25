@@ -269,4 +269,60 @@ class StoreController extends Controller
             ], 500);
         }
     }
+
+    public function editStore(Request $request, $id){
+        try{
+            
+            $validator = Validator::make($request->all(), [
+                'store_name' => 'required|string',
+                'address' => 'required',
+                'latlong_store' => 'required',
+            ]);
+            
+            if($validator->fails()){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ]);
+            }
+            
+            $store_name = $request->store_name;
+            $address = $request->address;
+            $latlong_store = $request->latlong_store;
+            
+            $dataStore = DB::select("SELECT * FROM ms_toko WHERE id = ?", [$id]);
+            if(!$dataStore){
+                return response()->json([
+                    'succsess' => false,
+                    'message' => 'Store not found'
+                ], 404);
+            }
+
+            DB::update("UPDATE ms_toko SET store_name = ?, address = ?, latlong_store = ? WHERE id = ?", [
+                $store_name, 
+                $address, 
+                $latlong_store, 
+                $id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Store updated successfully',
+                'data' => [
+                    'store_name' => $store_name,
+                    'address' => $address,
+                    'latlong_store' => $latlong_store,
+                ]
+            ]);
+
+        } catch (\Exception $e){
+            Log::error('Database error: '. $e->getMessage());
+             return response()->json([
+                'success' => false,
+                'message' => 'A database connection error occurred',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

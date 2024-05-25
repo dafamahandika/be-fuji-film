@@ -17,24 +17,34 @@ $router->get('/', function () use ($router) {
 
 
 $router->group(['prefix' => 'api'], function () use ($router) {
+    // Auth
     $router->post('/register', 'AuthController@register');
     $router->post('/send_otp', 'AuthController@sendOtp');
     $router->post('/verify_otp', 'AuthController@verifyOtp');
     $router->post('/logout', 'AuthController@logout');
     $router->get('/profile', 'AuthController@profile');
     
+    // API Wilayah
+    $router->get('/wilayah/province', 'StoreController@getProvince');
+    $router->get('/wilayah/regency/{id}', 'StoreController@getRegency');
+    $router->get('/wilayah/subdistrict/{id}', 'StoreController@getSubdistrict');
+    $router->get('/wilayah/village/{id}', 'StoreController@getVillage');
+
+    // Create Directory Photo
     $router->post('/directory/create/{id}', 'DirectoryController@createDirectory');
-    
-    $router->get('/wilayah/province', 'storeController@getProvince');
-    $router->get('/wilayah/regency/{id}', 'storeController@getRegency');
-    $router->get('/wilayah/subdistrict/{id}', 'storeController@getSubdistrict');
-    $router->get('/wilayah/village/{id}', 'storeController@getVillage');
 
-    $router->get('/store/get', 'storeController@getStore');
-    $router->get('/store/get/{id}', 'storeController@getOneStore');
-    $router->post('/store/create', 'storeController@createStore');
-    $router->delete('/store/delete/{id}', 'storeController@deleteStore');
+    // CRUD Store
+    $router->get('/store/get', 'StoreController@getStore');
+    $router->get('/store/get/{id}', 'StoreController@getOneStore');
+    $router->post('/store/create', 'StoreController@createStore');
+    $router->put('/store/edit/{id}', 'StoreController@editStore');
+    $router->delete('/store/delete/{id}', 'StoreController@deleteStore');
 
-    // home
-    $router->get('/home', 'UserController@home');
+    // CRUD Layanan
+    $router->get('/layanan/get', 'LayananController@getLayanan');
+    $router->get('/layanan/get/{id}', 'LayananController@getOneLayanan');
+    $router->post('/layanan/create', 'LayananController@createLayanan');
+    $router->put('/layanan/edit/{id}', 'LayananController@editLayanan');
+    $router->delete('/layanan/delete/{id}', 'LayananController@deleteLayanan');
+
 });
