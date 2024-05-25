@@ -183,7 +183,7 @@ class StoreController extends Controller
 
             if(!$dataStore){
                 return response()->json([
-                    'success' => true,
+                    'success' => false,
                     'message' => "Store not found",
                 ], 404);
             }
@@ -213,7 +213,7 @@ class StoreController extends Controller
 
             if(!$dataStore){
                 return response()->json([
-                    'success' => true,
+                    'success' => false,
                     'message' => "Store not found",
                 ], 404);
             }
@@ -243,7 +243,7 @@ class StoreController extends Controller
             ], 500);
         }
     }
-    
+
     public function deleteStore($id) {
         try{
             $deleteStoreLayanan = DB::statement("DELETE FROM ms_store_layanan WHERE id_store = ?", [$id]);
