@@ -67,7 +67,7 @@ class DirectoryController extends Controller
             if($directoryUsersPath && $directoryLayananPath && $directoryPaketPath){
                 $existDirectoryUsers = DB::selectOne("SELECT * FROM ms_direktori_users WHERE id_user = ? ", [$id_user]);
                 if ($existDirectoryUsers) {
-                    $idDirektoriUser = $existDirectoryUsers->id;
+                    $idDirektoryUser = $existDirectoryUsers->id;
                 } else {
                     DB::insert("INSERT INTO ms_direktori_users (id_user, directory_name, url_directory, created_at, last_accessed_at) VALUES (?, ?, ?, ?, ?)", [
                         $id_user, 
@@ -76,26 +76,26 @@ class DirectoryController extends Controller
                         Carbon::now(), 
                         Carbon::now()
                     ]);
-                    $idDirektoriUser = DB::getPdo()->lastInsertId();
+                    $idDirektoryUser = DB::getPdo()->lastInsertId();
                 }
 
                 $existDirectoryLayanan = DB::selectOne("SELECT * FROM ms_direktori_layanan WHERE id_direktori_users = ? 
                 AND 
-                directory_name = ? ", [$idDirektoriUser, $nama_layanan]);
+                directory_name = ? ", [$idDirektoryUser, $nama_layanan]);
                 if ($existDirectoryLayanan) {
-                    $idDirektoriLayanan = $existDirectoryLayanan->id;
+                    $idDirektoryLayanan = $existDirectoryLayanan->id;
                 } else {
                     DB::insert("INSERT INTO ms_direktori_layanan (id_direktori_users, directory_name, url_directory, created_at, last_accessed_at) VALUES (?, ?, ?, ?, ?)", [
-                        $idDirektoriUser, 
+                        $idDirektoryUser, 
                         $nama_layanan,
                         $directoryLayananPath, 
                         Carbon::now(), 
                         Carbon::now()]);
-                        $idDirektoriLayanan = DB::getPdo()->lastInsertId();
+                        $idDirektoryLayanan = DB::getPdo()->lastInsertId();
                 }
                 $existDirectoryPaket = DB::selectOne("SELECT * FROM ms_direktori_paket WHERE id_direktori_layanan = ?
                 AND directory_name = ? ", [
-                    $idDirektoriLayanan, 
+                    $idDirektoryLayanan, 
                     $nama_paket
                 ]);
                 if ($existDirectoryPaket) {
@@ -105,7 +105,7 @@ class DirectoryController extends Controller
                     ]);
                 } else {
                     DB::insert("INSERT INTO ms_direktori_paket (id_direktori_layanan, directory_name, url_directory, created_at, last_accessed_at) VALUES (?, ?, ?, ?, ?)", [
-                        $idDirektoriLayanan, 
+                        $idDirektoryLayanan, 
                         $nama_paket, 
                         $directoryPaketPath, 
                         Carbon::now(), 
@@ -118,11 +118,11 @@ class DirectoryController extends Controller
                     'success' => true,
                     'message' => "Success create directory",
                     'direktory_users' => [
-                        'id' => $idDirektoriUser,
+                        'id' => $idDirektoryUser,
                         'path' => $directoryUsersPath,
                     ],
                     'direktory_layanan' => [
-                        'id' => $idDirektoriLayanan,
+                        'id' => $idDirektoryLayanan,
                         'path' => $directoryLayananPath,
                     ],
                     'direktory_paket' => [
@@ -135,7 +135,7 @@ class DirectoryController extends Controller
             Log::error('Database error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan koneksi database',
+                'message' => 'A database connection error occurred',
                 'error' => $e->getMessage(),
             ], 500);
         }     
