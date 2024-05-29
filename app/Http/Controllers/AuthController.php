@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
-    // Register
     public function register(Request $request)
     {
         try {
@@ -32,12 +31,6 @@ class AuthController extends Controller
                     'errors' => $validator->errors(),
                 ], 422);
             }
-
-            $registrasi = [
-                'email' => $request->email,
-                'username' => $request->username,
-                'password' => Hash::make($request->password),
-            ];
 
             $emailExists = DB::selectOne("SELECT 1 FROM users WHERE email = ?", [$request->email]);
             $usernameExists = DB::selectOne("SELECT 1 FROM users WHERE username = ?", [$request->username]);
@@ -58,6 +51,12 @@ class AuthController extends Controller
                 ]);
             }
 
+            $registrasi = [
+                'email' => $request->email,
+                'username' => $request->username,
+                'password' => Hash::make($request->password),
+            ];
+
             $result = DB::insert("INSERT INTO users (email, username, password, create_date) VALUES (?, ?, ?, ?)", [
                 $registrasi['email'],
                 $registrasi['username'],
@@ -65,65 +64,28 @@ class AuthController extends Controller
                 Carbon::now(),
             ]);
 
-            if ($result) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Berhasil membuat akun',
-                    'data' => $registrasi,
-                ]);
-            } else {
+            if (!$result) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Terjadi kesalahan saat membuat akun',
+                    'message' => 'An error occurred while creating the account',
                 ]);
             }
-        } catch (\Exception $e) {
-            Log::error('Database error: '.$e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan koneksi database',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
 
-    // send otp email
-    public function sendOtp(Request $request)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'email' => 'required|string|email',
-            ]);
-
-
-            if ($validator->fails()) {
+            $emailUser = DB::selectOne("SELECT * FROM users WHERE email = ?", [$request->email]);
+            if (!$emailUser) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors(),
-                ], 422); // 422 Unprocessable Entity
-            }
-
-            $emailUser = DB::selectOne(
-                "SELECT * FROM users
-                WHERE email = ?",
-                [$request->email]
-            );
-            if(!$emailUser){
-                return response()->json([
-                        'success' => false,
-                        'message' => 'Email tidak terdaftar',
-                        'errors' => ['email' => ['Email tidak terdaftar']],
+                    'message' => 'Email not registered',
+                    'errors' => ['email' => ['Email not registered']],
                 ], 404); // 404 Email not found
             }
 
             $otp_code = rand(1000, 9999);
 
-
             $verifikasi = [
                 'user_id' => $emailUser->id,
                 'otp' => $otp_code,
-                'otp_expired' => Carbon::now()->addMinutes(5),
+                'otp_expired' => Carbon::now()->addHour(1),
                 'is_email_verified' => 0,
                 'is_phone_verified' => 0,
             ];
@@ -144,24 +106,118 @@ class AuthController extends Controller
                 $verifikasi['is_phone_verified'],
             ]);
 
-            if ($insertVerifikasi){
+            if ($insertVerifikasi) {
                 Mail::to($request->email)->send(new OtpMail($otp_code));
                 return response()->json([
-                        'success' => true,
-                        'message' => 'Sukses mengirim kode OTP, silahkan cek email anda',
-                        'data' => $verifikasi,
-                    ], 200);
-            }else{
+                    'success' => true,
+                    'message' => 'Successfully sent OTP code, please check your email',
+                    'data' => $verifikasi,
+                ], 200);
+            } else {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gagal mengirim kode OTP, silahkan coba lagi',
+                    'message' => 'Failed to send OTP code, please try again',
                 ], 400);
             }
         } catch (\Exception $e) {
             Log::error('Database error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan koneksi database',
+                'message' => 'A database connection error occurred',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // send otp email
+    public function sendOtp(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'email' => 'required|string|email',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors(),
+                ], 422); // 422 Unprocessable Entity
+            }
+
+            $emailUser = DB::table('users')->where('email', $request->email)->first();
+
+            if (!$emailUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Email not registered',
+                    'errors' => ['email' => ['Email not registered']],
+                ], 404); // 404 Email not found
+            }
+
+            // Convert stdClass to User model
+            $user = User::find($emailUser->id);
+
+            $verifikasi = DB::table('ms_verifikasi')->where('id_user', $emailUser->id)->first();
+
+            if ($verifikasi && $verifikasi->is_email_verified == 1) {
+                $token = Auth::login($user);
+
+                $requestTime = Carbon::now();
+                $tokenExpiryTime = $requestTime->copy()->addHour(2);
+
+                DB::table('ms_users_token')->insert([
+                    'id_user' => $emailUser->id,
+                    'token' => $token,
+                    'request_time' => $requestTime,
+                    'expired_time' => $tokenExpiryTime,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Email is already verified, token generated',
+                    'token' => $token,
+                    'request_time' => $requestTime->toDateTimeString(),
+                    'expired_time' => $tokenExpiryTime->toDateTimeString(),
+                    'data' => [
+                        'email' => $emailUser->email,
+                        'is_email_verified' => 1,
+                    ],
+                ], 200);
+            } else {
+                $otp_code = rand(1000, 9999);
+
+                $verifikasiData = [
+                    'id_user' => $emailUser->id,
+                    'otp' => $otp_code,
+                    'otp_expired' => Carbon::now()->addMinutes(5),
+                    'is_email_verified' => 0,
+                    'is_phone_verified' => 0,
+                ];
+
+                if ($verifikasi) {
+                    // Update existing OTP record
+                    DB::table('ms_verifikasi')
+                        ->where('id_user', $emailUser->id)
+                        ->update($verifikasiData);
+                } else {
+                    // Insert new OTP record
+                    DB::table('ms_verifikasi')->insert($verifikasiData);
+                }
+
+                Mail::to($request->email)->send(new OtpMail($otp_code));
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Successfully sent OTP code, please check your email',
+                    'data' => $verifikasiData,
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            Log::error('Database error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'A database connection error occurred',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -171,7 +227,6 @@ class AuthController extends Controller
     public function verifyOtp(Request $request)
     {
         try {
-            // Validasi input
             $validator = Validator::make($request->all(), [
                 'otp' => 'required|numeric|digits:4',
             ]);
@@ -195,14 +250,14 @@ class AuthController extends Controller
             if (!$verifyOtp) {
                 return response()->json([
                     'success' => false,
-                    'message' => "OTP tidak sesuai, silahkan coba lagi",
+                    'message' => "OTP does not match, please try again",
                 ], 400);
             }
 
             if ($verifyOtp->otp_expired < Carbon::now()) {
                 return response()->json([
                     'success' => false,
-                    'message' => "OTP telah expired, silahkan coba lagi",
+                    'message' => "OTP has expired, please try again",
                 ], 400);
             }
 
@@ -215,10 +270,22 @@ class AuthController extends Controller
             if ($user) {
                 $token = Auth::login($user);
 
+                $requestTime = Carbon::now();
+                $tokenExpiryTime = $requestTime->copy()->addHour(2);
+
+                DB::table('ms_users_token')->insert([
+                    'id_user' => $verifyOtp->id_user,
+                    'token' => $token,
+                    'request_time' => $requestTime,
+                    'expired_time' => $tokenExpiryTime,
+                ]);
+
                 return response()->json([
                     'success' => true,
-                    'message' => "OTP sesuai, email berhasil diverifikasi",
+                    'message' => "OTP matched, email verified successfully",
                     'token' => $token,
+                    'request_time' => $requestTime->toDateTimeString(),
+                    'expired_time' => $tokenExpiryTime->toDateTimeString(),
                     'data' => [
                         'email' => $verifyOtp->email,
                         'otp' => $verifyOtp->otp,
@@ -229,17 +296,76 @@ class AuthController extends Controller
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => "User tidak ditemukan",
+                    'message' => "User not found",
                 ], 404);
             }
         } catch (\Exception $e) {
             Log::error('Database error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan koneksi database',
+                'message' => 'A database connection error occurred',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // profile
+    public function profile(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated',
+                ], 401);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $user,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Profile retrieval error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving profile data',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // logout
+    public function logout(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated',
+                ], 401);
+            }
+
+            // Clear user token
+            DB::table('ms_users_token')->where('users_id', $user->id)->delete();
+
+            // Logout the user
+            Auth::logout();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Successfully logged out',
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Logout error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during logout',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
 }
-
