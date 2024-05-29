@@ -350,7 +350,7 @@ class AuthController extends Controller
             }
 
             // Clear user token
-            DB::table('ms_users_token')->where('users_id', $user->id)->delete();
+            DB::table('ms_users_token')->where('id_user', $user->id)->delete();
 
             // Logout the user
             Auth::logout();
